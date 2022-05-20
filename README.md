@@ -12,6 +12,8 @@ This is a simple way to do it.
 
 * In a second phase I extended greatly the number of methods and functions supported by ```Vec<char>```, as a internal (to the program) implemented trait on the external struct type Vector of chars. It has random access with O(1) performance. <br>
 
+* The only dependency of this code is on the Std and on the Crate unic_normal - UNIC — Unicode Normalization Forms . <br>
+
 
 ``` Rust
 use core::panic;
@@ -19,6 +21,9 @@ use std::ops::{Bound, RangeBounds};
 use std::iter;
 use std::mem;
 use std::collections::HashMap;
+
+extern crate unic_normal;
+use unic_normal::StrNormalForm;
 
 trait StringUtils {
     fn substring(&self, start: usize, len: usize) -> &str;
@@ -66,7 +71,9 @@ impl StringUtils for str {
     }
 
     fn get_vec_chars(&self) -> Vec<char> {
-        self.chars().collect()
+        // return self.chars().collect();
+        let tmp_str = self.nfc().collect::<String>();
+        tmp_str.chars().collect()
     }
 }
 

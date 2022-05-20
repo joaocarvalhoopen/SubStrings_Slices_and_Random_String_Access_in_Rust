@@ -28,6 +28,9 @@ use std::iter;
 use std::mem;
 use std::collections::HashMap;
 
+extern crate unic_normal;
+use unic_normal::StrNormalForm;
+
 trait StringUtils {
     fn substring(&self, start: usize, len: usize) -> &str;
     fn slice(&self, range: impl RangeBounds<usize>) -> &str;
@@ -74,7 +77,9 @@ impl StringUtils for str {
     }
 
     fn get_vec_chars(&self) -> Vec<char> {
-        self.chars().collect()
+        // return self.chars().collect();
+        let tmp_str = self.nfc().collect::<String>();
+        tmp_str.chars().collect()
     }
 }
 
@@ -296,15 +301,14 @@ impl StringUtilsVecCharsV2 for Vec<char> {
     }
   
     fn push_str(& mut self, p_str: &str) {
-        for c in p_str.chars() {
-            self.push(c);
-        }
+        let vec_chars = p_str.get_vec_chars();
+        self.extend(vec_chars);
     }
     
-    fn push_str_start(& mut self, p_str: &str) { 
-        let mut vec_tmp: Vec<char> = p_str.chars().collect();             
-        vec_tmp.extend(self.iter());
-        let _ = mem::replace(self, vec_tmp);
+    fn push_str_start(& mut self, p_str: &str) {              
+        let mut vec_chars = p_str.get_vec_chars();
+        vec_chars.extend(self.iter());
+        let _ = mem::replace(self, vec_chars);
     }
 
     fn push_vec_start(& mut self, other_vec: &Vec<char>) {
@@ -317,7 +321,7 @@ impl StringUtilsVecCharsV2 for Vec<char> {
         if at_pos >= self.len() {
             return Err("Error: In insert_str(), parameter at_pos is greater then sel.len() - 1".to_string());
         }
-        let vec_t1: Vec<char> = p_str.chars().collect();
+        let vec_t1: Vec<char> = p_str.get_vec_chars();
         let mut vec_tmp: Vec<char> = Vec::with_capacity(self.len() + vec_t1.len());
         vec_tmp.extend(self[..at_pos].iter());
         vec_tmp.extend(vec_t1.iter());
@@ -434,7 +438,7 @@ impl StringUtilsVecCharsV2 for Vec<char> {
     }
 
     fn find_str(& self, p_str: &str, start_pos: usize, end_pos: Option<usize>) -> Option<usize> {
-        let pattern_vec_chars: Vec<char> = p_str.chars().collect(); 
+        let pattern_vec_chars: Vec<char> = p_str.get_vec_chars(); 
         self.find_vec(&pattern_vec_chars, start_pos, end_pos)
     }
 
@@ -649,7 +653,78 @@ fn test_vec_char_methods() {
     drop(vc_b);
     drop(vc_c);
 
-    // @@ Test 2 - join_vec() .
+
+    // @@ Test 2 - Tests on Vec<char> with the reverse of the order of the Vec
+    //             with some problematic characters.
+
+    fn fnc(s: &str) -> String {
+        let mut str_tmp:Vec<char> = s.get_vec_chars();
+        str_tmp.reverse();
+        str_tmp.to_string() 
+    }
+
+    // With  Crate unic_normal - UNIC — Unicode Normalization Forms
+
+    println!("\nReverse Vec<char> with crate unic_normal - UNIC — Unicode Normalization Forms");
+
+    println!("{} vs {}", fnc("🇸🇪"), "🇸🇪");
+
+    println!("{} vs {}", fnc("noçl"), "lçon");
+    println!("{} vs {}", fnc("noãl"), "lãon");
+    println!("{} vs {}", fnc("noál"), "láon");
+    println!("{} vs {}", fnc("noél"), "léon");
+    println!("{} vs {}", fnc("noíl"), "líon");
+    println!("{} vs {}", fnc("noàl"), "làon");
+    println!("{} vs {}", fnc("noâl"), "lâon");
+    println!("{} vs {}", fnc("noêl"), "lêon");
+
+    // Print Out reverse Vec<char> .
+    //
+    // 🇪🇸 vs 🇸🇪
+    // lçon vs lçon
+    // lãon vs lãon
+    // láon vs láon
+    // léon vs léon
+    // líon vs líon
+    // làon vs làon
+    // lâon vs lâon
+    // lêon vs lêon
+    
+
+
+    // Without  Crate unic_normal - UNIC — Unicode Normalization Forms
+
+    println!("\nReverse String without crate unic_normal - UNIC — Unicode Normalization Forms");
+
+    fn naive_reverse_string(s: &str) -> String {
+        s.chars().rev().collect()
+    }
+
+    println!("{} vs {}", naive_reverse_string("🇸🇪"), "🇸🇪");
+
+    println!("{} vs {}", naive_reverse_string("noçl"), "lçon");
+    println!("{} vs {}", naive_reverse_string("noãl"), "lãon");
+    println!("{} vs {}", naive_reverse_string("noál"), "láon");
+    println!("{} vs {}", naive_reverse_string("noél"), "léon");
+    println!("{} vs {}", naive_reverse_string("noíl"), "líon");
+    println!("{} vs {}", naive_reverse_string("noàl"), "làon");
+    println!("{} vs {}", naive_reverse_string("noâl"), "lâon");
+    println!("{} vs {}", naive_reverse_string("noêl"), "lêon");
+
+    // Print Out reverse String .
+    //
+    // 🇪🇸 vs 🇸🇪
+    // ļcon vs lçon
+    // l̃aon vs lãon
+    // ĺaon vs láon
+    // ĺeon vs léon
+    // ĺion vs líon
+    // l̀aon vs làon
+    // l̂aon vs lâon
+    // l̂eon vs lêon
+    
+
+    // @@ Test 3 - join_vec() .
     let vc_a: Vec<char> = Vec::join_vec(&[&"bla".get_vec_chars(),
                                                           &"_bli".get_vec_chars(),
                                                           &['_', 'a', 'b', 'c'],
@@ -658,7 +733,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 3 - join_str() .
+    // @@ Test 4 - join_str() .
     let vc_a: Vec<char> = Vec::join_str(&["bla",
                                                     "_bli",
                                                     &"_abc".to_string(),
@@ -667,7 +742,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 4 - push_str() .
+    // @@ Test 5 - push_str() .
     let mut vc_a = "bla".get_vec_chars();
     vc_a.push_str("bli");
     assert!(vc_a.eq_str("blabli"));
@@ -675,7 +750,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
      
 
-    // @@ Test 5 - push_str_start() .
+    // @@ Test 6 - push_str_start() .
     let mut vc_a = "bla".get_vec_chars();
     vc_a.push_str_start("bli");
     assert!(vc_a.eq_str("blibla"));
@@ -683,7 +758,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
     
 
-    // @@ Test 6 - push_vec_start() .
+    // @@ Test 7 - push_vec_start() .
     let mut vc_a = "bla".get_vec_chars();
     let vc_b = "bli".get_vec_chars();
     vc_a.push_vec_start(&vc_b);
@@ -693,7 +768,7 @@ fn test_vec_char_methods() {
     drop(vc_b);
 
 
-    // @@ Test 7 - insert_str()
+    // @@ Test 8 - insert_str()
     let mut vc_a = "bla".get_vec_chars();
     let res = vc_a.insert_str("bli", 0_usize);
     assert!(res == Ok(()));
@@ -707,7 +782,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 8 - insert_vec()
+    // @@ Test 9 - insert_vec()
     let mut vc_a = "bla".get_vec_chars();
     let vc_b = "bli".get_vec_chars();
     let res = vc_a.insert_vec(&vc_b, 0_usize);
@@ -723,7 +798,7 @@ fn test_vec_char_methods() {
     drop(vc_b);
 
 
-    // @@ Test 9 - trim_start()
+    // @@ Test 10 - trim_start()
     let mut vc_a = "  \tbla".get_vec_chars();
     vc_a.trim_start();
     // println!("{:?}", vc_a);
@@ -744,7 +819,7 @@ fn test_vec_char_methods() {
     drop(vc_c);
 
 
-    // @@ Test 10 - trim_end()
+    // @@ Test 11 - trim_end()
     let mut vc_a = "bla  \t".get_vec_chars();
     vc_a.trim_end();
     assert!(vc_a.eq_str("bla"));
@@ -763,7 +838,7 @@ fn test_vec_char_methods() {
     drop(vc_c);
 
 
-    // @@ Test 11 - trim()
+    // @@ Test 12 - trim()
     let mut vc_a = "  \tb  lll  aa a  \t".get_vec_chars();
     vc_a.trim();
     assert!(vc_a.eq_str("b  lll  aa a"));
@@ -782,7 +857,7 @@ fn test_vec_char_methods() {
     drop(vc_c);
 
 
-    // @@ Test 12 - find_vec()
+    // @@ Test 13 - find_vec()
     let vc_a = "blabliblu".get_vec_chars();
     let start_pos: usize = 0;
     let end_pos: Option<usize> = None;
@@ -794,7 +869,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 13 - find_str()
+    // @@ Test 14 - find_str()
     // Note: This is where all the tests are made to the underlining find_vec() .
     let vc_a = "blabliblu".get_vec_chars();
     let start_pos: usize = 0;
@@ -848,7 +923,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 14 - contains_vec()
+    // @@ Test 15 - contains_vec()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.contains_vec(&"bla".get_vec_chars());
     assert!(res_bool);
@@ -857,7 +932,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 15 - contains_str()
+    // @@ Test 16 - contains_str()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.contains_str("bla");
     assert!(res_bool);
@@ -866,7 +941,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 16 - start_with_vec()
+    // @@ Test 17 - start_with_vec()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.start_with_vec(&"bla".get_vec_chars());
     assert!(res_bool);
@@ -875,7 +950,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 17 - start_with_str()
+    // @@ Test 18 - start_with_str()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.start_with_str("bla");
     assert!(res_bool);
@@ -884,7 +959,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 18 - ends_with_vec()
+    // @@ Test 19 - ends_with_vec()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.ends_with_vec(&"blu".get_vec_chars());
     assert!(res_bool);
@@ -893,7 +968,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 19 - ends_with_str()
+    // @@ Test 20 - ends_with_str()
     let vc_a = "blabliblu".get_vec_chars();
     let res_bool = vc_a.ends_with_str("blu");
     assert!(res_bool);
@@ -902,7 +977,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 20 - replace_vec()
+    // @@ Test 21 - replace_vec()
     // Pattern that doesn't exist.
     let mut vc_a = "blabliblu".get_vec_chars();
     let res = vc_a.replace_vec(&"BBB".get_vec_chars(),
@@ -950,7 +1025,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 21 - replace_str()
+    // @@ Test 22 - replace_str()
     // Pattern that doesn't exist.
     let mut vc_a = "blabliblu".get_vec_chars();
     let res = vc_a.replace_str("BBB",
@@ -971,7 +1046,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 22 - replace_vec_all()
+    // @@ Test 23 - replace_vec_all()
     // Pattern that doesn't exist.
     let mut vc_a = "blabliblu".get_vec_chars();
     let res = vc_a.replace_vec_all(&"BBB".get_vec_chars(),
@@ -1015,7 +1090,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 23 - replace_str_all()
+    // @@ Test 24 - replace_str_all()
     // Pattern that doesn't exist.
     let mut vc_a = "blabliblu".get_vec_chars();
     let res = vc_a.replace_str_all("BBB",
@@ -1035,7 +1110,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 24 - split_vec()
+    // @@ Test 25 - split_vec()
     // At pattern that doesn't exist.
     let vc_a = "aBBlaBBliBBlu".get_vec_chars();
     let res_vec = vc_a.split_vec(&"CCC".get_vec_chars());
@@ -1062,7 +1137,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 25 - split_str()
+    // @@ Test 26 - split_str()
     // At pattern that doesn't exist.
     let vc_a = "aBBlaBBliBBlu".get_vec_chars();
     let res_vec = vc_a.split_str("CCC");
@@ -1079,7 +1154,7 @@ fn test_vec_char_methods() {
     drop(vc_a);
 
 
-    // @@ Test 26 - map_str()
+    // @@ Test 27 - map_str()
     // At pattern that doesn't exist.
     let mut vc_a = "a1 a1 : a2 : a3 a3 a3 : a4 : a5".get_vec_chars();
     let replace_hashmap = HashMap::from([
